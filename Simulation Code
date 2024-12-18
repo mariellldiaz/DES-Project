@@ -1,0 +1,60 @@
+import simpy
+import random
+
+def main():
+    # Define the ICU workflow using SimPy (a discrete event simulation library)
+    class ICU:
+        def __init__(self, env, num_beds, num_nurses):
+            self.env = env
+            self.bed_resource = simpy.Resource(env, num_beds)
+            self.nurse_resource = simpy.Resource(env, num_nurses)
+            self.patients_treated = 0
+
+        def admit_patient(self, patient_id):
+            print(f"Patient {patient_id} arrives at the ICU at {self.env.now}")
+            
+            # Request a bed
+            with self.bed_resource.request() as bed_request:
+                yield bed_request
+                print(f"Patient {patient_id} admitted to a bed at {self.env.now}")
+                
+                # Request a nurse for treatment
+                with self.nurse_resource.request() as nurse_request:
+                    yield nurse_request
+                    print(f"Patient {patient_id} being treated by a nurse at {self.env.now}")
+                    treatment_time = random.randint(5, 15)
+                    yield self.env.timeout(treatment_time)
+                    print(f"Patient {patient_id} treatment completed at {self.env.now}")
+                    self.patients_treated += 1
+
+    # Patient arrival process
+    def patient_arrivals(env, icu, arrival_rate):
+        patient_id = 1
+        while True:
+            yield env.timeout(random.expovariate(arrival_rate))
+            env.process(icu.admit_patient(patient_id))
+            patient_id += 1
+
+    # Simulation parameters
+    NUM_BEDS = 3
+    NUM_NURSES = 2
+    SIMULATION_TIME = 50  # Total simulation time in minutes
+    ARRIVAL_RATE = 0.5    # Average arrival rate (patients per minute)
+
+    # Run the simulation
+    def run_simulation():
+        print("Starting ICU workflow simulation\n")
+        env = simpy.Environment()
+        icu = ICU(env, NUM_BEDS, NUM_NURSES)
+        env.process(patient_arrivals(env, icu, ARRIVAL_RATE))
+        env.run(until=SIMULATION_TIME)
+        
+        print("\nSimulation completed")
+        print(f"Total patients treated: {icu.patients_treated}")
+
+    if __name__ == "__main__":
+        run_simulation()
+
+if __name__ == "__main__":
+    main()
+    
